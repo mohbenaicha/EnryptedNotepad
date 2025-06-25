@@ -1,0 +1,5 @@
+__pycache__/
+config.json
+# To ignore all contents of a folder but keep the folder itself, add the following:
+notes/*
+!notes/.gitkeep
