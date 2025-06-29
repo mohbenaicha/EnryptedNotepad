@@ -1,13 +1,257 @@
 from PyQt6.QtWidgets import (
     QWidget, QListWidget, QTextEdit, QVBoxLayout, QHBoxLayout,
-    QPushButton, QLineEdit, QLabel, QFileDialog, QSplitter, QToolButton, QSplitterHandle, QFrame, QSlider, QApplication
+    QPushButton, QLineEdit, QLabel, QFileDialog, QSplitter, QToolButton, QSplitterHandle, QFrame, QSlider, QApplication,
+    QDialog, QMessageBox
 )
 from PyQt6.QtGui import QFont, QColor, QAction, QIcon, QPixmap, QPen, QTextCharFormat, QTextCursor, QKeySequence, QShortcut
 from PyQt6.QtCore import Qt, QSize
 from PyQt6.QtGui import QPainter, QImage, QBrush
 import sys
 
-# Utility function to colorize icons
+class CustomDialog(QDialog):
+    def __init__(self, parent=None, title="", message=""):
+        super().__init__(parent)
+        self.setWindowTitle(title)
+        self.setWindowFlag(Qt.WindowType.FramelessWindowHint)
+        self.setFixedSize(400, 200)
+        self.setStyleSheet("""
+            QDialog {
+                background-color: #0b1a2d;
+                color: white;
+                border-radius: 12px;
+                border: 2px solid #3366cc;
+            }
+        """)
+        
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(20, 20, 20, 20)
+        layout.setSpacing(20)
+        
+        # Title bar
+        title_bar = QWidget()
+        title_bar.setFixedHeight(35)
+        title_bar.setStyleSheet("background: #12213a; border-top-left-radius: 10px; border-top-right-radius: 10px;")
+        title_layout = QHBoxLayout(title_bar)
+        title_layout.setContentsMargins(15, 0, 15, 0)
+        
+        title_label = QLabel(title)
+        title_label.setStyleSheet("font-weight: bold; font-size: 14px; color: #aad8ff;")
+        title_layout.addWidget(title_label)
+        title_layout.addStretch(1)
+        
+        close_btn = QToolButton()
+        close_btn.setText("×")
+        close_btn.setToolTip("Cancel")
+        close_btn.setStyleSheet("""
+            QToolButton {
+                background: none; font-size: 16px; color: #aad8ff; border-radius: 6px;
+            }
+            QToolButton:hover {
+                background: #d9534f; color: white;
+            }
+        """)
+        close_btn.clicked.connect(self.reject)
+        title_layout.addWidget(close_btn)
+        
+        layout.addWidget(title_bar)
+        
+        # Message
+        if message:
+            msg_label = QLabel(message)
+            msg_label.setStyleSheet("color: #aad8ff; font-size: 13px; margin-bottom: 10px;")
+            layout.addWidget(msg_label)
+        
+        # Input field
+        self.input_field = QLineEdit()
+        self.input_field.setMinimumHeight(40)
+        self.input_field.setStyleSheet("""
+            QLineEdit {
+                background-color: #102a4c;
+                border: 2px solid #3366cc;
+                color: white;
+                padding: 10px;
+                border-radius: 8px;
+                font-size: 14px;
+                min-height: 20px;
+            }
+            QLineEdit:focus {
+                border: 2px solid #aad8ff;
+            }
+        """)
+        layout.addWidget(self.input_field)
+        
+        # Buttons
+        button_layout = QHBoxLayout()
+        button_layout.addStretch(1)
+        
+        cancel_btn = QPushButton("Cancel")
+        cancel_btn.setMinimumHeight(35)
+        cancel_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #1a3a6d;
+                border: none;
+                padding: 8px 16px;
+                border-radius: 8px;
+                color: white;
+                font-size: 13px;
+            }
+            QPushButton:hover {
+                background-color: #3366cc;
+            }
+        """)
+        cancel_btn.clicked.connect(self.reject)
+        
+        confirm_btn = QPushButton("Confirm")
+        confirm_btn.setMinimumHeight(35)
+        confirm_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #1a3a6d;
+                border: none;
+                padding: 8px 16px;
+                border-radius: 8px;
+                color: white;
+                font-size: 13px;
+            }
+            QPushButton:hover {
+                background-color: #3366cc;
+            }
+        """)
+        confirm_btn.clicked.connect(self.accept)
+        
+        button_layout.addWidget(cancel_btn)
+        button_layout.addWidget(confirm_btn)
+        layout.addLayout(button_layout)
+        
+        # Make dialog draggable
+        self._drag_active = False
+        self._drag_pos = None
+        title_bar.mousePressEvent = self._title_mouse_press
+        title_bar.mouseMoveEvent = self._title_mouse_move
+        title_bar.mouseReleaseEvent = self._title_mouse_release
+        
+        # Set focus to input field
+        self.input_field.setFocus()
+        
+        # Connect Enter key to confirm button
+        self.input_field.returnPressed.connect(self.accept)
+        
+    def _title_mouse_press(self, event):
+        if event.button() == Qt.MouseButton.LeftButton:
+            self._drag_active = True
+            self._drag_pos = event.globalPosition().toPoint() - self.frameGeometry().topLeft()
+            event.accept()
+    
+    def _title_mouse_move(self, event):
+        if self._drag_active and event.buttons() & Qt.MouseButton.LeftButton:
+            self.move(event.globalPosition().toPoint() - self._drag_pos)
+            event.accept()
+    
+    def _title_mouse_release(self, event):
+        self._drag_active = False
+        event.accept()
+    
+    def get_text(self):
+        return self.input_field.text().strip()
+
+class CustomMessageDialog(QDialog):
+    def __init__(self, parent=None, title="", message="", icon_type="info"):
+        super().__init__(parent)
+        self.setWindowTitle(title)
+        self.setWindowFlag(Qt.WindowType.FramelessWindowHint)
+        self.setFixedSize(400, 180)
+        self.setStyleSheet("""
+            QDialog {
+                background-color: #0b1a2d;
+                color: white;
+                border-radius: 12px;
+                border: 2px solid #3366cc;
+            }
+        """)
+        
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(20, 20, 20, 20)
+        layout.setSpacing(20)
+        
+        # Title bar
+        title_bar = QWidget()
+        title_bar.setFixedHeight(35)
+        title_bar.setStyleSheet("background: #12213a; border-top-left-radius: 10px; border-top-right-radius: 10px;")
+        title_layout = QHBoxLayout(title_bar)
+        title_layout.setContentsMargins(15, 0, 15, 0)
+        
+        title_label = QLabel(title)
+        title_label.setStyleSheet("font-weight: bold; font-size: 14px; color: #aad8ff;")
+        title_layout.addWidget(title_label)
+        title_layout.addStretch(1)
+        
+        close_btn = QToolButton()
+        close_btn.setText("×")
+        close_btn.setToolTip("Close")
+        close_btn.setStyleSheet("""
+            QToolButton {
+                background: none; font-size: 16px; color: #aad8ff; border-radius: 6px;
+            }
+            QToolButton:hover {
+                background: #d9534f; color: white;
+            }
+        """)
+        close_btn.clicked.connect(self.accept)
+        title_layout.addWidget(close_btn)
+        
+        layout.addWidget(title_bar)
+        
+        # Message
+        msg_label = QLabel(message)
+        msg_label.setWordWrap(True)
+        msg_label.setStyleSheet("color: #aad8ff; font-size: 13px; margin: 10px 0;")
+        layout.addWidget(msg_label)
+        
+        # OK button
+        button_layout = QHBoxLayout()
+        button_layout.addStretch(1)
+        
+        ok_btn = QPushButton("OK")
+        ok_btn.setMinimumHeight(35)
+        ok_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #1a3a6d;
+                border: none;
+                padding: 8px 16px;
+                border-radius: 8px;
+                color: white;
+                font-size: 13px;
+            }
+            QPushButton:hover {
+                background-color: #3366cc;
+            }
+        """)
+        ok_btn.clicked.connect(self.accept)
+        
+        button_layout.addWidget(ok_btn)
+        layout.addLayout(button_layout)
+        
+        # Make dialog draggable
+        self._drag_active = False
+        self._drag_pos = None
+        title_bar.mousePressEvent = self._title_mouse_press
+        title_bar.mouseMoveEvent = self._title_mouse_move
+        title_bar.mouseReleaseEvent = self._title_mouse_release
+        
+    def _title_mouse_press(self, event):
+        if event.button() == Qt.MouseButton.LeftButton:
+            self._drag_active = True
+            self._drag_pos = event.globalPosition().toPoint() - self.frameGeometry().topLeft()
+            event.accept()
+    
+    def _title_mouse_move(self, event):
+        if self._drag_active and event.buttons() & Qt.MouseButton.LeftButton:
+            self.move(event.globalPosition().toPoint() - self._drag_pos)
+            event.accept()
+    
+    def _title_mouse_release(self, event):
+        self._drag_active = False
+        event.accept()
+
 def colorize_icon(path, color):
     pixmap = QPixmap(path)
     image = pixmap.toImage().convertToFormat(QImage.Format.Format_ARGB32)
@@ -41,15 +285,12 @@ class CustomSplitterHandle(QSplitterHandle):
         w = self.width()
         h = self.height()
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
-        # Optional: faint background on hover
         if self._hover:
             painter.setBrush(QColor(170, 216, 255, 40))
             painter.setPen(Qt.PenStyle.NoPen)
             painter.drawRect(self.rect())
-        # Draw a strong double vertical line (||) in the center
         line_color = QColor('#aad8ff')
         painter.setPen(QPen(line_color, 4))
-        # Centered double lines, always within bounds
         x1 = w // 2 - 4
         x2 = w // 2 + 4
         y1 = h // 2 - min(12, h // 2 - 2)
@@ -103,10 +344,8 @@ class MainWindowUI(QWidget):
 
         self.setWindowTitle("Encrypted Notes")
         self.resize(900, 600)
-        # Remove window frame for custom title bar
         self.setWindowFlag(Qt.WindowType.FramelessWindowHint)
 
-        # Modern font and rounded corners for all boxes
         self.setStyleSheet("""
             QWidget {
                 background-color: #0b1a2d;
@@ -148,7 +387,6 @@ class MainWindowUI(QWidget):
             }
         """)
 
-        # Custom title bar placeholder
         self.title_bar = QWidget()
         self.title_bar.setFixedHeight(36)
         self.title_bar.setStyleSheet("background: #12213a; border-top-left-radius: 12px; border-top-right-radius: 12px;")
@@ -158,7 +396,6 @@ class MainWindowUI(QWidget):
         self.title_label.setStyleSheet("font-weight: bold; font-size: 16px; color: #aad8ff;")
         title_layout.addWidget(self.title_label)
         title_layout.addStretch(1)
-        # Custom minimize and close buttons (placeholders)
         self.min_btn = QToolButton()
         self.min_btn.setText("–")
         self.min_btn.setToolTip("Minimize")
@@ -184,21 +421,15 @@ class MainWindowUI(QWidget):
         title_layout.addWidget(self.min_btn)
         title_layout.addWidget(self.close_btn)
 
-        # Layouts
         main_splitter = CustomSplitter(Qt.Orientation.Horizontal)
         side_widget = QWidget()
         side_layout = QVBoxLayout(side_widget)
         editor_widget = QWidget()
         editor_layout = QVBoxLayout(editor_widget)
 
-        # Side panel
         self.list_widget = QListWidget()
 
-        # Brighter color for icons
         bright_color = QColor(180, 220, 255)
-        # New file input and button
-        self.new_file_name_edit = QLineEdit()
-        self.new_file_name_edit.setPlaceholderText("New note title")
         self.new_file_button = QToolButton()
         self.new_file_button.setIcon(colorize_icon("media/new.png", bright_color))
         self.new_file_button.setIconSize(QSize(20, 20))
@@ -208,13 +439,11 @@ class MainWindowUI(QWidget):
 
         side_layout.addWidget(QLabel("Notes"))
         side_layout.addWidget(self.list_widget)
-        side_layout.addWidget(self.new_file_name_edit)
         side_layout.addWidget(self.new_file_button)
 
-        # Text editor area
         self.text_edit = QTextEdit()
+        self.text_edit.setReadOnly(True)
 
-        # Buttons
         self.save_button = QToolButton()
         self.save_button.setIcon(colorize_icon("media/save.png", bright_color))
         self.save_button.setIconSize(QSize(20, 20))
@@ -226,12 +455,31 @@ class MainWindowUI(QWidget):
         self.export_button.setToolTip("Export All Notes")
         self.export_button.setAutoRaise(True)
 
-        # UI scale slider
+        self.delete_button = QToolButton()
+        self.delete_button.setText("🗑")
+        self.delete_button.setIconSize(QSize(20, 20))
+        self.delete_button.setToolTip("Delete Selected Note")
+        self.delete_button.setAutoRaise(True)
+        self.delete_button.setStyleSheet("""
+            QToolButton {
+                background-color: #1a3a6d;
+                border: none;
+                padding: 8px;
+                border-radius: 8px;
+                color: #ff6b6b;
+                font-size: 16px;
+            }
+            QToolButton:hover {
+                background-color: #d9534f;
+                color: white;
+            }
+        """)
+
         self.ui_scale_slider = QSlider(Qt.Orientation.Horizontal)
         self.ui_scale_slider.setMinimum(80)
         self.ui_scale_slider.setMaximum(300)
         self.ui_scale_slider.setValue(100)
-        self.ui_scale_slider.setFixedWidth(60)
+        self.ui_scale_slider.setFixedWidth(120)
         self.ui_scale_slider.setFixedHeight(20)
         self.ui_scale_slider.setMinimumHeight(20)
         self.ui_scale_slider.setMaximumHeight(20)
@@ -263,7 +511,6 @@ class MainWindowUI(QWidget):
             }
         ''')
 
-        # Create a compact layout for the slider and its labels
         self.slider_minus = QLabel("−")
         self.slider_minus.setStyleSheet("color: #aad8ff; font-size: 16px; padding-right: 2px;")
         self.slider_plus = QLabel("+")
@@ -282,12 +529,12 @@ class MainWindowUI(QWidget):
         button_layout.addWidget(self.new_file_button)
         button_layout.addWidget(self.save_button)
         button_layout.addWidget(self.export_button)
+        button_layout.addWidget(self.delete_button)
         button_layout.addStretch(1)
         button_layout.addWidget(self.slider_group_widget)
         button_layout.setSpacing(8)
         button_layout.setContentsMargins(0, 0, 12, 0)
 
-        # --- Formatting toolbar above the text area ---
         self.format_toolbar = QHBoxLayout()
         self.format_toolbar.setContentsMargins(0, 0, 0, 0)
         self.format_toolbar.setSpacing(4)
@@ -351,7 +598,6 @@ class MainWindowUI(QWidget):
         self.format_toolbar.addWidget(self.bold_btn)
         self.format_toolbar.addWidget(self.italic_btn)
         self.format_toolbar.addWidget(self.underline_btn)
-        # H1, H2, H3 buttons
         self.h1_btn = QToolButton()
         self.h1_btn.setText('H1')
         self.h1_btn.setToolTip('Heading 1')
@@ -552,6 +798,8 @@ QScrollBar::add-page:horizontal, QScrollBar::sub-page:horizontal {
         QShortcut(QKeySequence('Ctrl+U'), self, activated=self.underline_btn.click)
         QShortcut(QKeySequence('Ctrl+N'), self, activated=self.new_file_button.click)
         QShortcut(QKeySequence('Ctrl+S'), self, activated=self.save_button.click)
+        QShortcut(QKeySequence('Ctrl+E'), self, activated=self.export_button.click)
+        QShortcut(QKeySequence('Delete'), self, activated=self.delete_button.click)
         # Underline leading spaces workaround
         self._block_underline_leading_spaces = False
 
@@ -796,6 +1044,7 @@ QScrollBar::add-page:horizontal, QScrollBar::sub-page:horizontal {
         self.new_file_button.setIconSize(QSize(icon_size, icon_size))
         self.save_button.setIconSize(QSize(icon_size, icon_size))
         self.export_button.setIconSize(QSize(icon_size, icon_size))
+        self.delete_button.setIconSize(QSize(icon_size, icon_size))
         # Update title bar height
         self.title_bar.setFixedHeight(int(36*scale))
         self.title_label.setStyleSheet(f"font-weight: bold; font-size: {int(16*scale)}px; color: #aad8ff;")
